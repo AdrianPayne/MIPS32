@@ -1,123 +1,145 @@
-.data
-msg: .ascii "Inserta un numero loco: "
-.text
-main:
-#Entrada
-	la $a0, msg
+	.data
+msg: .ascii "Introduce un numero: "
+br: .ascii "\n"
+
+main:	.text
 	li $v0, 4
+	la $a0, msg
 	syscall
+	
 	li $v0, 5
 	syscall
 	
-primer_nodo:
-	#inicializo
 	move $a0, $v0
 	move $a1, $zero
-	beqz $a0, exit
 	
 	jal create
-
-	#P_first
+	
 	move $s0, $v0
-bucle:
-#Entrada
-	la $a0, msg
+	
+loop:
+	#PRINT
+	move $a0, $s0
+	jal print
 	li $v0, 4
+	la $a0, br
 	syscall
+	##############
+
+	li $v0, 4
+	la $a0, msg
+	syscall
+	
 	li $v0, 5
 	syscall
 	
-	move $a0, $s0 #1. P_First
-	move $a1, $v0 #2. Valor
+	move $a1, $v0
+	beqz $a1, exit
+	move $a0, $s0
 	
 	jal insert_in_order
 	
-	jal print_fake
-	b bucle
-
+	beqz $v0, loop
+	move $s0, $v0
 	
-create: #(valor, p_next) => p_new
-	#CONVENIO: abrir pila
-	subu $sp, $sp, 32
-	sw $ra, 20($sp)
-	sw $fp, 16($sp)
-	addiu $fp, $sp, 24
-	sw $a0, 0($fp)
-	sw $a1, 4($fp)
-	
-	#Reservo memoria [4bytes por variable]
-	li $a0, 8
-	li $v0, 9
-	syscall
+	b loop
 
-	lw $a0, 0($fp)
-	lw $a1, 4($fp)
-	sw $a0, 0($v0)
-	sw $a1, 4($v0)
-
-	#CONVENIO: cerrar pila
-	lw $ra, 20($sp)
-	lw $fp, 16($sp)
-	addiu $sp, $sp, 32
-
-	jr $ra
-insert_in_order: #(p_inicial, valor)
-	#CONVENIO: Abrir pila
-	subu $sp, $sp, 32
-	sw $ra, 20($sp)
-	sw $fp, 16($sp)
-	addiu $fp, $sp, 24
-	sw $a0, 0($fp)
-	sw $a1, 4($fp)
-	
-busqueda_bucle:
-	lw $t0, 0($a0) #valor 
-	lw $t1, 4($a0) #puntero
-	blt $a1, $t0, ultimo_nodo #soy mas pequeño, voy a comprobar si he llegado al final
-	
-crear_nodo: #########LAS DOS FORMAS DE CREAR NODOS!
-	move $t1, $a0
-	move $a0, $a1
-	move $a1, $t0
-	
-	jal create
-	#$v0 -> P_nodo
-	lw $a0, 0($fp)
-	sw $v0, 4($a0)
-	
-	#CONVENIO: cerrar pila
-	lw $ra, 20($sp)
-	lw $fp, 16($sp)
-	addiu $sp, $sp, 32
-
-	jr $ra
-ultimo_nodo:
-	beqz  $t1, crear_nodo 
-	
-	sw $a0, 0($fp)
-	lw $a0, 4($a0)
-	b busqueda_bucle
-	
-print_fake:
-	#CONVENIO: Abrir pila
-	subu $sp, $sp, 32
-	sw $ra, 20($sp)
-	sw $fp, 16($sp)
-	addiu $fp, $sp, 24
-	sw $a0, 0($fp)
-
-	lw $a0, 0($fp)
-	lw $t9, 0($a0)
-	move $a0, $t9
-	li $v0, 1
-	syscall
-
-	#CONVENIO: cerrar pila
-	lw $ra, 20($sp)
-	lw $fp, 16($sp)
-	addiu $sp, $sp, 32
-
-	jr $ra
 exit:
 	li $v0, 10
 	syscall
+	
+create: #IN: val, P_next; OUT: P_me
+	#PROTOCOL start
+	subu $sp, $sp, 32
+	sw $ra, 16($sp)
+	sw $fp, 20($sp)
+	addiu $fp, $sp, 24
+	sw $a0, 0($fp)
+	sw $a1, 4($fp)
+	
+	li $a0, 8
+	li $v0, 9
+	syscall
+	
+	lw $a0, 0($fp)
+	lw $a1, 4($fp)
+	
+	sw $a0, 0($v0)
+	sw $a1, 4($v0)
+	
+	#PROTOCOL end
+	lw $ra, 16($sp)
+	lw $fp, 20($sp)
+	addiu $sp, $sp, 32
+	jr $ra
+	
+insert_in_order: #IN: P_First, Val; OUT: P_First_b (0 if no changes)
+	#PROTOCOL start
+	subu $sp, $sp, 32
+	sw $ra, 16($sp)
+	sw $fp, 20($sp)
+	addiu $fp, $sp, 24
+	sw $a0, 0($fp)
+	sw $a1, 4($fp)
+
+	move $t2, $a0	####	$t2 = vector n | $a0 = vector n + 1
+	lw $a0, 4($a0)
+insert_in_order_loop:
+	lw $t0, 0($t2)
+	ble $t0, $a1, insert_first
+	
+	beqz $a0, insert_post
+	lw $t0, 0($a0)
+	ble $t0, $a1, insert_post
+	
+	move $t2, $a0
+	lw $a0, 4($a0)
+	b insert_in_order_loop
+insert_first:
+	lw $a0, 4($fp)
+	lw $a1, 0($fp)
+	jal create
+	
+	b insert_in_order_end
+
+insert_post:
+	move $a1, $a0
+	lw $a0, 4($fp)
+	sw $t2, 0($fp)
+	
+	jal create
+	
+	lw $t2, 0($fp)
+	sw $v0, 4($t2)
+	
+	li $v0, 0
+insert_in_order_end:
+	#PROTOCOL end
+	lw $ra, 16($sp)
+	lw $fp, 20($sp)
+	addiu $sp, $sp, 32
+	jr $ra
+	
+print: #IN: P_First(or next), P_Last
+	#PROTOCOL start
+	subu $sp, $sp, 32
+	sw $ra, 16($sp)
+	sw $fp, 20($sp)
+	addiu $fp, $sp, 24
+	sw $a0, 0($fp)
+	
+	lw $a0, 4($a0)
+	
+	beqz $a0, print_end
+	jal print
+print_end:
+	li $v0, 1
+	lw $a0, 0($fp)
+	lw $a0, 0($a0)
+	syscall
+	
+	#PROTOCOL end
+	lw $ra, 16($sp)
+	lw $fp, 20($sp)
+	addiu $sp, $sp, 32
+	jr $ra
