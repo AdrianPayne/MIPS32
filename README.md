@@ -10,6 +10,8 @@ Create a *list of integers* in order from greater to lesser
 * *print*
   * Print in terminal list of integers from lesser to greater (reverse direction)
   
+  
+  
 ## pila_reverse.asm
 ### Exercise of exam, time trial max 2h(done in 1h 17m)
 Create a *list of integers* in order from lesser to greater
